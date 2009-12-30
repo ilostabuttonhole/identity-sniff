@@ -72,10 +72,10 @@ class IdentitySniffer(object):
       for word in ('elix', 'allad', 'allas', 'homas', 'romberg', 'tjourney', 'freebsd', 'FreeBSD', 'Dell', 'Core'):
         if word in payload:
           matched = True
-          print 'Missed: %s' % payload
+#          print 'Missed: %s' % payload
 
-      if matched:
-        print pkt.summary()
+#      if matched:
+#        print pkt.summary()
 
   def ProcessInput(self):
     """Call this when you are ready for IdentitySniffer to do something."""

@@ -13,7 +13,10 @@ def _Decompress(data):
 #  print hexdump(data)
   compressed_stream = StringIO.StringIO(data)
   decompressor = gzip.GzipFile(fileobj=compressed_stream)
-  extracted = decompressor.read()
+  try:
+    extracted = decompressor.read()
+  except:
+    raise IOError
   return extracted
 
 def _AttemptGzipResponseReassembly(pkt):
@@ -32,18 +35,19 @@ def _AttemptGzipResponseReassembly(pkt):
         return decompressed
       except IOError, zlib.error:
         CONTENT_FRAGMENTS[frag_id] = [gzip_content]
-        print "- Found truncated gzipped content: Began %s" % frag_id
+#        print "- Found truncated gzipped content: Began %s" % frag_id
   else:
     if frag_id in CONTENT_FRAGMENTS:
       CONTENT_FRAGMENTS[frag_id].append(payload)
       try_content = ''.join(CONTENT_FRAGMENTS[frag_id])
       try:
         decompressed = _Decompress(try_content)
-        print '- Extracted %s (%s bytes, %s elements)' % (frag_id, len(try_content), len(CONTENT_FRAGMENTS[frag_id]))
+#        print '- Extracted %s (%s bytes, %s elements)' % (frag_id, len(try_content), len(CONTENT_FRAGMENTS[frag_id]))
         del CONTENT_FRAGMENTS[frag_id]
         return decompressed
       except IOError, zlib.error:
-        print '- Unable to extract %s (%s bytes, %s elements)' % (frag_id, len(try_content), len(CONTENT_FRAGMENTS[frag_id]))
+        pass
+#        print '- Unable to extract %s (%s bytes, %s elements)' % (frag_id, len(try_content), len(CONTENT_FRAGMENTS[frag_id]))
 
 
 def Parse(pkt):
@@ -53,7 +57,8 @@ def Parse(pkt):
     content = decompressed
     for word in ('elix', 'allad', 'allas', 'homas', 'romberg', 'tjourney', 'freebsd', 'FreeBSD', 'Dell', 'Core'):
       if word in content:
-        print 'Missed: %s' % content
+        pass
+#        print 'Missed: %s' % content
 
   # Used by Google
   # {"userId":"17739266793723263052","userName":"helixblue","userProfileId":"116119420122834839490","userEmail":"helixblue@gmail.com","isBloggerUser":true,"signupTimeSec":0,"publicUserName":"helixblue"}

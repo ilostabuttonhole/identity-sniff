@@ -24,8 +24,6 @@ def Parse(pkt):
     match = re.search('\&gausr=(%s)' % EMAIL_RE, payload)
     if match:
       return ('E-Mail', 'GMail', match.group(1))
-    else:
-      print "No match for e-mail: %s" % payload
       
   # Gravatar
   elif 'gravatar=' in payload:
