@@ -7,13 +7,15 @@ DEFAULT_LISTEN_PORTS = (25, 80, 137, 110, 143, 5050, 5353)
 
 import sys
 import optparse
-from scapy.all import sniff, IP, TCP, UDP, NBNSQueryRequest
+from scapy.all import sniff, IP, TCP, UDP, NBNSQueryRequest, load_module
 from snarfers import http_outgoing
 from snarfers import http_incoming
 from snarfers import yahoo_outgoing
 from snarfers import mdns_outgoing
 from snarfers import upnp_outgoing
 from snarfers import netbios_ns_outgoing
+
+load_module("p0f")
 
 class IdentitySniffer(object):
   def __init__(self, interface=None, pcap_filename=None, filter=None):
@@ -35,21 +37,28 @@ class IdentitySniffer(object):
       scapy.Packet
     """
     results = None
+    p0f_results = None
     if not pkt.haslayer(IP):
       return
-
+ 
     src_or_dst = 'src'
     # TCP packets only so far
     if pkt.getlayer(IP).proto == 6:
+      if pkt.getlayer(TCP).flags & 0x13 == 0x02:
+        p0f_results = p0f(pkt)
+        print "p0f: %s" % p0f_results
+  
       if 'Raw' not in pkt:
         return
       if pkt.getlayer(TCP).dport == 80:
+        # SYN
         results = http_outgoing.Parse(pkt)
       elif pkt.getlayer(TCP).sport == 80:
         src_or_dst = 'dst'
         results = http_incoming.Parse(pkt)
       elif pkt.getlayer(TCP).dport == 5050:
         results = yahoo_outgoing.Parse(pkt)
+      
     # UDP
     elif pkt.getlayer(IP).proto == 17:
       if pkt.getlayer(UDP).dport == 137:
@@ -61,7 +70,7 @@ class IdentitySniffer(object):
         results = upnp_outgoing.Parse(pkt)
 
     if results:
-      output = [pkt['Ethernet'].fields[src_or_dst], pkt.getlayer(IP).fields[src_or_dst]] + list(results) 
+      output = [pkt['Ethernet'].fields[src_or_dst], pkt.getlayer(IP).fields[src_or_dst], p0f_results] + list(results) 
       print output
     else:
       if 'Raw' not in pkt:
@@ -69,17 +78,18 @@ class IdentitySniffer(object):
       payload = pkt['Raw.load']      
       # TODO(tstromberg): Remove hardcoded test data.
       matched = False
-      for word in ('elix', 'allad', 'allas', 'homas', 'romberg', 'tjourney', 'freebsd', 'FreeBSD', 'Dell', 'Core'):
+      for word in ('helixblue', 'Sallad', 'Dallas', 'Thomas', 'Stromberg', 'tjourney', 'Dell', 'Core2'):
         if word in payload:
           matched = True
-#          print 'Missed: %s' % payload
+          print 'Missed: %s' % payload
 
-#      if matched:
-#        print pkt.summary()
+      if matched:
+        print pkt.summary()
 
   def ProcessInput(self):
     """Call this when you are ready for IdentitySniffer to do something."""
-    
+
+    print "filter: %s" % self.filter
     if self.interface:
       sniff(prn=self.ProcessPacket, store=0, filter=self.filter, iface=self.interface)      
     elif self.pcap_filename:
@@ -96,7 +106,7 @@ if __name__ == '__main__':
                     type='str', help='Ethernet interface to use')
   (options, args) = parser.parse_args()
   if args:
-    filter = args
+    filter = args[0]
   else:
     filter = 'port %s' % ' or port '.join(map(str, DEFAULT_LISTEN_PORTS))
   ids = IdentitySniffer(pcap_filename=options.pcap_filename, interface=options.interface, filter=filter)
